@@ -1,19 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 
 // ─────────────────────────────────────────────────────────────
-//  Supabase — SATU-SATUNYA sumber data untuk semua device
-//  Tidak ada localStorage. Semua baca/tulis langsung ke cloud.
+//  Supabase Cloud Database Client
 // ─────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://vczjikexwngpjuqlmase.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_WI3XbrS2joJn-bJlp_59Pw_lfuKNqmm";
 
-// Draft kuesioner: pakai sessionStorage (hanya per-tab, tidak perlu sinkron antar device)
+const STORAGE_KEY_RESPONSES = "tau_tracer_responses_real_v3";
 const STORAGE_KEY_DRAFT = "tau_tracer_draft_v4";
 
-// Initialize Supabase Client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Helper: normalisasi nama kolom DB (snake_case) ke field yang dipakai UI
+// Helper: Map database columns (snake_case) to JS object properties
 const mapFromDb = (row) => {
   if (!row) return null;
   return {
@@ -23,31 +21,14 @@ const mapFromDb = (row) => {
   };
 };
 
-// ─── READ ─────────────────────────────────────────────────────
-// Ambil SEMUA responden langsung dari Supabase (tidak ada cache lokal)
-export const getStoredResponses = async () => {
-  const { data, error } = await supabase
-    .from("tracer_responses")
-    .select("*")
-    .order("submitted_at", { ascending: false });
-
-  if (error) {
-    console.error("Gagal mengambil data dari Supabase:", error.message);
-    throw new Error(error.message);
-  }
-
-  return (data || []).map(mapFromDb);
-};
-
-// ─── CREATE ───────────────────────────────────────────────────
-// Simpan responden baru langsung ke Supabase
-export const saveResponse = async (newData) => {
+// Format JS object into DB schema (snake_case)
+const formatForDb = (newData) => {
   const entryId =
     newData.id ||
     `TAU-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
   const submittedAt = newData.submittedAt || new Date().toISOString();
 
-  const formattedData = {
+  return {
     id: entryId,
     kdptim: newData.kdptim || "031054",
     kdpst: newData.kdpst || "",
@@ -57,7 +38,7 @@ export const saveResponse = async (newData) => {
     email: newData.email || "",
     nik: newData.nik || "",
     npwp: newData.npwp || "",
-    tahun_lulus: newData.tahun_lulus || newData.tahunLulus || "2026",
+    tahun_lulus: String(newData.tahun_lulus || newData.tahunLulus || "2026"),
     f8: String(newData.f8 || ""),
     f502: String(newData.f502 || ""),
     f505: String(newData.f505 || ""),
@@ -107,59 +88,149 @@ export const saveResponse = async (newData) => {
     f1614: String(newData.f1614 || ""),
     submitted_at: submittedAt,
   };
+};
 
-  const { data, error } = await supabase
-    .from("tracer_responses")
-    .insert([formattedData])
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Gagal menyimpan ke Supabase:", error.message);
-    throw new Error(error.message);
+// ─── READ ─────────────────────────────────────────────────────
+export const getStoredResponses = async () => {
+  let localData = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+    if (raw) localData = JSON.parse(raw);
+  } catch (e) {
+    console.warn("Failed reading localStorage cache:", e);
   }
 
+  try {
+    const { data, error } = await supabase
+      .from("tracer_responses")
+      .select("*")
+      .order("submitted_at", { ascending: false });
+
+    if (error) {
+      console.warn("Supabase query warning:", error.message);
+      // If table is missing or error, return localData so existing 6 respondents are still visible
+      return localData;
+    }
+
+    let dbResponses = (data || []).map(mapFromDb);
+
+    // Auto-migrate local responses to Supabase if any exist locally but not in Supabase yet
+    if (localData.length > 0) {
+      const dbIds = new Set(dbResponses.map((r) => r.id || r.nim));
+      const missingInDb = localData.filter(
+        (r) => !dbIds.has(r.id) && !dbIds.has(r.nim)
+      );
+
+      if (missingInDb.length > 0) {
+        console.log(`Auto-migrating ${missingInDb.length} local responses to Supabase...`);
+        for (const item of missingInDb) {
+          const payload = formatForDb(item);
+          await supabase.from("tracer_responses").insert([payload]);
+        }
+        // Re-fetch after auto-migration
+        const { data: updatedData } = await supabase
+          .from("tracer_responses")
+          .select("*")
+          .order("submitted_at", { ascending: false });
+        if (updatedData) dbResponses = updatedData.map(mapFromDb);
+      }
+    }
+
+    // Sync localStorage cache
+    try {
+      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(dbResponses));
+    } catch (e) {}
+
+    return dbResponses;
+  } catch (err) {
+    console.error("Supabase connect error:", err);
+    return localData;
+  }
+};
+
+// ─── CREATE ───────────────────────────────────────────────────
+export const saveResponse = async (newData) => {
+  const formattedPayload = formatForDb(newData);
+  const mappedEntry = mapFromDb(formattedPayload);
+
+  // Always save to localStorage immediately as backup
+  let currentLocal = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+    currentLocal = raw ? JSON.parse(raw) : [];
+  } catch (e) {}
+  
+  const updatedLocal = [mappedEntry, ...currentLocal.filter(x => x.id !== mappedEntry.id)];
+  try {
+    localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(updatedLocal));
+  } catch (e) {}
+
   clearDraft();
-  return mapFromDb(data);
+
+  // Try pushing to Supabase
+  try {
+    const { error } = await supabase
+      .from("tracer_responses")
+      .insert([formattedPayload]);
+    if (error) console.error("Error saving to Supabase:", error.message);
+  } catch (e) {
+    console.error("Supabase insert exception:", e);
+  }
+
+  return mappedEntry;
 };
 
 // ─── UPDATE ───────────────────────────────────────────────────
-// Update responden di Supabase, kembalikan daftar terbaru
 export const updateResponse = async (id, updatedData) => {
-  const { error } = await supabase
-    .from("tracer_responses")
-    .update(updatedData)
-    .eq("id", id);
+  // Update local cache
+  let currentLocal = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+    currentLocal = raw ? JSON.parse(raw) : [];
+    const idx = currentLocal.findIndex((item) => (item.id || item.nim) === id);
+    if (idx !== -1) {
+      currentLocal[idx] = { ...currentLocal[idx], ...updatedData };
+      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(currentLocal));
+    }
+  } catch (e) {}
 
-  if (error) {
-    console.error("Gagal mengupdate Supabase:", error.message);
-    throw new Error(error.message);
-  }
+  // Update Supabase
+  try {
+    const { error } = await supabase
+      .from("tracer_responses")
+      .update(updatedData)
+      .eq("id", id);
+    if (error) console.error("Error updating Supabase:", error.message);
+  } catch (e) {}
 
-  // Kembalikan daftar terbaru dari Supabase
   return await getStoredResponses();
 };
 
 // ─── DELETE ───────────────────────────────────────────────────
-// Hapus responden dari Supabase, kembalikan daftar terbaru
 export const deleteResponse = async (id) => {
-  const { error } = await supabase
-    .from("tracer_responses")
-    .delete()
-    .eq("id", id);
+  // Delete from local cache
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+    if (raw) {
+      const currentLocal = JSON.parse(raw);
+      const filtered = currentLocal.filter((item) => (item.id || item.nim) !== id);
+      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(filtered));
+    }
+  } catch (e) {}
 
-  if (error) {
-    console.error("Gagal menghapus dari Supabase:", error.message);
-    throw new Error(error.message);
-  }
+  // Delete from Supabase
+  try {
+    const { error } = await supabase
+      .from("tracer_responses")
+      .delete()
+      .eq("id", id);
+    if (error) console.error("Error deleting from Supabase:", error.message);
+  } catch (e) {}
 
-  // Kembalikan daftar terbaru dari Supabase
   return await getStoredResponses();
 };
 
 // ─── TARGET LULUSAN ───────────────────────────────────────────
-// Disimpan di sessionStorage (per-session, bukan per-device permanent)
-// Nilai default 100 jika belum diset
 export const getTargetGraduates = () => {
   try {
     const raw = sessionStorage.getItem("tau_target_graduates");
@@ -179,31 +250,31 @@ export const setTargetGraduates = (count) => {
   }
 };
 
-// ─── RESET (admin only) ───────────────────────────────────────
 export const resetToDefaultData = async () => {
-  // Hanya mengembalikan array kosong (tidak ada localStorage yang perlu dihapus)
-  // Penghapusan semua data dari Supabase harus dilakukan secara manual via dashboard Supabase
+  try {
+    localStorage.removeItem(STORAGE_KEY_RESPONSES);
+  } catch (e) {}
   return [];
 };
 
-// ─── DRAFT (per-tab saja, tidak sinkron antar device — ini normal) ────────
+// ─── DRAFT ────────────────────────────────────────────────────
 export const saveDraft = (data) => {
   try {
     sessionStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(data));
-  } catch (e) {
-    console.error("Error saving draft:", e);
-  }
+  } catch (e) {}
 };
 
 export const getDraft = () => {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY_DRAFT);
     return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
+  } catch (e) {}
+  return null;
 };
 
 export const clearDraft = () => {
-  sessionStorage.removeItem(STORAGE_KEY_DRAFT);
+  try {
+    sessionStorage.removeItem(STORAGE_KEY_DRAFT);
+  } catch (e) {}
 };
+
