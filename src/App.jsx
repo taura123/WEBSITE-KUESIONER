@@ -4,7 +4,7 @@ import Footer from "./components/common/Footer";
 import TracerFormWizard from "./components/alumni/TracerFormWizard";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import AdminLoginPage from "./components/admin/AdminLoginPage";
-import { getStoredResponses } from "./utils/storage";
+import { getStoredResponses, supabase } from "./utils/storage";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -17,8 +17,8 @@ export default function App() {
   });
 
   // Always keep fresh data from Supabase cloud (authoritative source)
-  const refreshData = async () => {
-    setIsLoading(true);
+  const refreshData = async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
     try {
       const data = await getStoredResponses();
       if (Array.isArray(data)) {
@@ -27,16 +27,43 @@ export default function App() {
     } catch (e) {
       console.error("Error refreshing data:", e);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    refreshData();
+    refreshData(true);
+
+    // 1. Listen for window focus (ketika user buka/pindah tab di HP, otomatis sync data terbaru)
+    const handleFocus = () => {
+      refreshData(false);
+    };
+    window.addEventListener("focus", handleFocus);
+
+    // 2. Real-time sync via Supabase Channel (langsung update saat ada tambah/edit/hapus dari device lain)
+    const channel = supabase
+      .channel("public:tracer_responses")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tracer_responses" },
+        () => {
+          refreshData(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    refreshData(false);
   }, [activeTab]);
 
   const handleSubmittedSuccess = () => {
-    refreshData();
+    refreshData(false);
   };
 
   const handleDataUpdated = (freshList) => {
@@ -51,7 +78,7 @@ export default function App() {
     sessionStorage.setItem("tau_active_tab", "admin");
     setIsAdminAuthenticated(true);
     setActiveTab("admin");
-    refreshData();
+    refreshData(true);
   };
 
   const handleAdminLogout = () => {
@@ -64,7 +91,7 @@ export default function App() {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     sessionStorage.setItem("tau_active_tab", tab);
-    refreshData();
+    refreshData(false);
   };
 
   return (
@@ -103,3 +130,4 @@ export default function App() {
     </div>
   );
 }
+
