@@ -13,42 +13,52 @@ export default function AdminLoginPage({ onLoginSuccess }) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    // Check against backend endpoint or fallback
-    fetch("http://localhost:5000/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          sessionStorage.setItem("tau_admin_auth", "true");
-          if (data.token) sessionStorage.setItem("tau_admin_token", data.token);
-          onLoginSuccess();
-        } else {
-          setError("Email atau password tidak valid.");
-        }
-      })
-      .catch(() => {
-        // Fallback for client-side demo when backend API is not running
-        if (
-          email.trim().toLowerCase() === ADMIN_CREDENTIALS.email &&
-          password === ADMIN_CREDENTIALS.password
-        ) {
-          sessionStorage.setItem("tau_admin_auth", "true");
-          onLoginSuccess();
-        } else {
-          setError("Email atau password tidak valid. Hubungi administrator sistem.");
-        }
-      })
-      .finally(() => {
-        setIsLoading(false);
+    try {
+      // Try backend API first — use relative URL so it works from any host/IP
+      // If frontend is served from the same origin, use relative; otherwise try Supabase fallback
+      const apiBase = window.location.hostname === "localhost"
+        ? "http://localhost:5000"
+        : `http://${window.location.hostname}:5000`;
+
+      const res = await fetch(`${apiBase}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        signal: AbortSignal.timeout(4000) // 4s timeout so we don't hang on other devices
       });
+
+      if (res.ok) {
+        const data = await res.json();
+        sessionStorage.setItem("tau_admin_auth", "true");
+        if (data.token) sessionStorage.setItem("tau_admin_token", data.token);
+        onLoginSuccess();
+        return;
+      } else {
+        setError("Email atau password tidak valid.");
+        return;
+      }
+    } catch {
+      // Backend not reachable — fallback to client-side check
+      // This allows login from devices that can't reach the Docker backend
+    }
+
+    // Fallback credential check (works offline / from any device)
+    if (
+      email.trim().toLowerCase() === ADMIN_CREDENTIALS.email &&
+      password === ADMIN_CREDENTIALS.password
+    ) {
+      sessionStorage.setItem("tau_admin_auth", "true");
+      onLoginSuccess();
+    } else {
+      setError("Email atau password tidak valid. Hubungi administrator sistem.");
+    }
+
+    setIsLoading(false);
   };
 
   return (

@@ -22,30 +22,43 @@ const mapFromDb = (row) => {
 };
 
 export const getStoredResponses = async () => {
+  // Helper: get from localStorage cache
+  const getLocalCache = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
   try {
-    // Try fetching from Supabase first
-    const { data, error } = await supabase
+    // Race: Supabase vs 5-second timeout so UI never hangs
+    const supabasePromise = supabase
       .from("tracer_responses")
       .select("*")
       .order("submitted_at", { ascending: false });
 
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Supabase timeout")), 5000)
+    );
+
+    const { data, error } = await Promise.race([supabasePromise, timeoutPromise]);
+
     if (!error && data) {
       const mapped = data.map(mapFromDb);
-      // Cache locally
+      // Always overwrite local cache with the authoritative cloud data
       localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(mapped));
       return mapped;
     }
+    // Supabase returned an error — fall through to local cache
+    console.warn("Supabase returned error:", error?.message);
   } catch (e) {
-    console.warn("Supabase fetch failed, fallback to localStorage:", e);
+    console.warn("Supabase fetch failed, using local cache:", e.message);
   }
 
-  // Fallback to localStorage
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
+  // Fallback to localStorage cache (offline / slow connection)
+  return getLocalCache();
 };
 
 export const saveResponse = async (newData) => {
@@ -130,6 +143,7 @@ export const saveResponse = async (newData) => {
 };
 
 export const updateResponse = async (id, updatedData) => {
+  // Optimistic local update first for instant UI feedback
   const current = JSON.parse(localStorage.getItem(STORAGE_KEY_RESPONSES) || "[]");
   const index = current.findIndex((item) => (item.id || item.nim) === id);
   if (index !== -1) {
@@ -142,10 +156,13 @@ export const updateResponse = async (id, updatedData) => {
   } catch (e) {
     console.error("Error updating Supabase:", e);
   }
-  return current;
+
+  // Re-fetch from Supabase to get the authoritative list
+  return await getStoredResponses();
 };
 
 export const deleteResponse = async (id) => {
+  // Optimistic local delete first for instant UI feedback
   const current = JSON.parse(localStorage.getItem(STORAGE_KEY_RESPONSES) || "[]");
   const updated = current.filter((item) => (item.id || item.nim) !== id);
   localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(updated));
@@ -155,7 +172,9 @@ export const deleteResponse = async (id) => {
   } catch (e) {
     console.error("Error deleting from Supabase:", e);
   }
-  return updated;
+
+  // Re-fetch from Supabase to get the authoritative list
+  return await getStoredResponses();
 };
 
 export const getTargetGraduates = () => {
