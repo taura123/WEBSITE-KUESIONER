@@ -59,7 +59,7 @@ const INITIAL = {
   f21: "3", f22: "3", f23: "3", f24: "3", f25: "3", f26: "3", f27: "3",
   
   // Q15
-  f301: "", f302: "", f303: "0",
+  f301: "", f302: "", f303: "",
   
   // Q16
   f401: "0", f402: "0", f403: "0", f404: "0", f405: "0", f406: "0", f407: "0", f408: "0", f409: "0", f410: "0", f411: "0", f412: "0", f413: "0", f414: "0", f415: "0", f416: "",
@@ -118,6 +118,7 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
           next.f502 = ""; next.f505 = "";
           next.f5a1 = ""; next.f5a2 = "";
           next.f5d = "";
+          next.f1201 = ""; next.f1202 = "";
         }
         // Reset field khusus Bekerja jika bukan f8=1
         if (f8 !== "1") {
@@ -132,18 +133,6 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
         // Reset field Lanjut Studi jika bukan f8=4
         if (f8 !== "4") {
           next.f18a = ""; next.f18b = ""; next.f18c = ""; next.f18d = "";
-        }
-        // Untuk Lanjut Studi: reset semua field karir dan pencarian kerja
-        if (f8 === "4") {
-          next.f1201 = ""; next.f1202 = "";
-          next.f301 = ""; next.f302 = ""; next.f303 = "0";
-          next.f6 = ""; next.f7 = ""; next.f7a = "";
-          next.f1001 = ""; next.f1002 = "";
-        }
-        // Untuk Belum Memungkinkan Bekerja (f8=2) dan Mencari Kerja (f8=5):
-        // reset pencarian kerja timing (akan diisi ulang oleh user)
-        if (f8 === "2" || f8 === "5") {
-          next.f301 = ""; next.f302 = ""; next.f303 = "0";
         }
       }
       

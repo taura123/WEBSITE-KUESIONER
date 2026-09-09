@@ -3,32 +3,96 @@ import { OFFICIAL_KEMENDIKTI_HEADERS } from "../data/kemendiktiSchema";
 
 // Map each questionnaire response into the exact official Kemendikti Excel column format
 export const toKemendiktiRow = (row) => {
-  const cleanSalary = row.f505 ? String(row.f505).replace(/\D/g, "") : "";
-  const cleanWaitMonths = row.f502 ? String(row.f502).replace(/\D/g, "") : "";
+  const f8 = String(row.f8 || "");
+  const isBekerja = f8 === "1";
+  const isWiraswasta = f8 === "3";
+  const isLanjutStudi = f8 === "4";
+  const isBekerjaOrWiraswasta = isBekerja || isWiraswasta;
 
-  // 1. F301: Valid values are only '1', '2', or '3'
-  let f301Val = "";
+  // Q2: Masa Tunggu (F8 = 1 OR 3)
+  const cleanWaitMonths = isBekerjaOrWiraswasta && row.f502 != null && row.f502 !== "" 
+    ? String(row.f502).replace(/\D/g, "") 
+    : "";
+
+  // Q3: Pendapatan (F8 = 1 OR 3)
+  const cleanSalary = isBekerjaOrWiraswasta && row.f505 != null && row.f505 !== ""
+    ? String(row.f505).replace(/\D/g, "")
+    : "";
+
+  // Q4: Lokasi (F8 = 1 OR 3)
+  const f5a1 = isBekerjaOrWiraswasta ? (row.f5a1 || "") : "";
+  const f5a2 = isBekerjaOrWiraswasta ? (row.f5a2 || "") : "";
+
+  // Q5: Jenis instansi (F8 = 1) -> F1101, F1102 jika F1101 = 5
+  const f1101 = isBekerja ? (row.f1101 || "") : "";
+  const f1102 = isBekerja && f1101 === "5" ? (row.f1102 || "") : "";
+
+  // Q6: Nama perusahaan (F8 = 1)
+  const f5b = isBekerja ? (row.f5b || "") : "";
+
+  // Q7: Posisi wiraswasta (F8 = 3)
+  const f5c = isWiraswasta ? (row.f5c || "") : "";
+
+  // Q8: Tingkat tempat kerja (F8 = 1 OR 3)
+  const f5d = isBekerjaOrWiraswasta ? (row.f5d || "") : "";
+
+  // Q9: Studi Lanjut (F8 = 4)
+  const f18a = isLanjutStudi ? (row.f18a || "") : "";
+  const f18b = isLanjutStudi ? (row.f18b || "") : "";
+  const f18c = isLanjutStudi ? (row.f18c || "") : "";
+  const f18d = isLanjutStudi ? (row.f18d || "") : "";
+
+  // Q10: Sumber dana kuliah (F8 ≠ 4)
+  const f1201 = !isLanjutStudi ? (row.f1201 || row.f12 || "1") : "";
+  const f1202 = !isLanjutStudi && f1201 === "7" ? (row.f1202 || "") : "";
+
+  // Q11 & Q12: Keselarasan & Kesesuaian (F8 = 1)
+  const f14 = isBekerja ? (row.f14 || "2") : "";
+  const f15 = isBekerja ? (row.f15 || "2") : "";
+
+  // Q15: Kapan mulai mencari kerja (Semua responden)
+  let f301Val = String(row.f301 || "");
   let f302Val = "";
   let f303Val = "";
 
-  if (row.f303 === "1") {
-    f301Val = "3"; // Tidak mencari kerja
-  } else if (row.f301 && Number(row.f301) > 0) {
-    f301Val = "1"; // Sebelum lulus
-    f302Val = String(row.f301);
-  } else if (row.f302 && Number(row.f302) > 0) {
-    f301Val = "2"; // Sesudah lulus
-    f303Val = String(row.f302);
-  } else if (row.f301 === "1" || row.f301 === "2" || row.f301 === "3") {
-    f301Val = row.f301;
-    f302Val = row.f302 || "";
-    f303Val = row.f303 || "";
+  if (f301Val === "1") {
+    f302Val = row.f302 != null && row.f302 !== "" ? String(row.f302) : "";
+  } else if (f301Val === "2") {
+    f303Val = row.f303 != null && row.f303 !== "" ? String(row.f303) : "";
+  } else if (f301Val === "3") {
+    f302Val = "";
+    f303Val = "";
+  } else {
+    // Fallback if older data format had f302/f303 numbers directly
+    if (row.f303 === "1") {
+      f301Val = "3";
+    } else if (row.f301 && Number(row.f301) > 0) {
+      f301Val = "1";
+      f302Val = String(row.f301);
+    } else if (row.f302 && Number(row.f302) > 0) {
+      f301Val = "2";
+      f303Val = String(row.f302);
+    } else {
+      f301Val = "3";
+    }
   }
 
-  // 2. F14 & F15 Mandatory defaults when F8 = 1 (Bekerja)
-  const isBekerja = String(row.f8) === "1";
-  const f14Val = row.f14 || (isBekerja ? "2" : ""); // Default '2' (Erat) if missing for F8=1
-  const f15Val = row.f15 || (isBekerja ? "2" : ""); // Default '2' (Tingkat yang sama) if missing for F8=1
+  // Q16: Cara mencari kerja (F401 - F415, F416)
+  const f415 = row.f415 === "1" ? "1" : "0";
+  const f416 = f415 === "1" ? (row.f416 || "") : "";
+
+  // Q17, Q18, Q19 (F6, F7, F7A)
+  const f6 = row.f6 != null && row.f6 !== "" ? String(row.f6) : "0";
+  const f7 = row.f7 != null && row.f7 !== "" ? String(row.f7) : "0";
+  const f7a = row.f7a != null && row.f7a !== "" ? String(row.f7a) : "0";
+
+  // Q20: Aktif mencari kerja (F1001, F1002)
+  const f1001 = row.f1001 || "1";
+  const f1002 = String(f1001) === "5" ? (row.f1002 || "") : "";
+
+  // Q21: Alasan tidak sesuai (F1601 - F1613, F1614)
+  const f1613 = row.f1613 === "1" ? "1" : "0";
+  const f1614 = f1613 === "1" ? (row.f1614 || "") : "";
 
   return {
     "Kode Pt": row.kdptim || "031054",
@@ -40,24 +104,24 @@ export const toKemendiktiRow = (row) => {
     "Tahun Lulus": row.tahun_lulus || "",
     "NIK": row.nik || "",
     "NPWP": row.npwp || "",
-    "f8": row.f8 || "",
+    "f8": f8,
     "f502": cleanWaitMonths,
     "f505": cleanSalary,
-    "f5a1": row.f5a1 || "",
-    "f5a2": row.f5a2 || "",
-    "f1101": row.f1101 || "",
-    "f1102": row.f1102 || "",
-    "f5b": row.f5b || "",
-    "f5c": row.f5c || "",
-    "f5d": row.f5d || "",
-    "f18a": row.f18a || "",
-    "f18b": row.f18b || "",
-    "f18c": row.f18c || "",
-    "f18d": row.f18d || "",
-    "f1201": row.f12 || row.f1201 || (String(row.f8) === "4" ? "" : "1"),
-    "f1202": row.f1202 || "",
-    "f14": f14Val,
-    "f15": f15Val,
+    "f5a1": f5a1,
+    "f5a2": f5a2,
+    "f1101": f1101,
+    "f1102": f1102,
+    "f5b": f5b,
+    "f5c": f5c,
+    "f5d": f5d,
+    "f18a": f18a,
+    "f18b": f18b,
+    "f18c": f18c,
+    "f18d": f18d,
+    "f1201": f1201,
+    "f1202": f1202,
+    "f14": f14,
+    "f15": f15,
     "f1761": row.f1301a || row.f1761 || "4",
     "f1762": row.f1301b || row.f1762 || "5",
     "f1763": row.f1302a || row.f1763 || "4",
@@ -96,13 +160,13 @@ export const toKemendiktiRow = (row) => {
     "f412": row.f412 === "1" ? "1" : "0",
     "f413": row.f413 === "1" ? "1" : "0",
     "f414": row.f414 === "1" ? "1" : "0",
-    "f415": row.f415 === "1" ? "1" : "0",
-    "f416": row.f416 || "",
-    "f6": row.f6 || "",
-    "f7": row.f7 || "",
-    "f7a": row.f7a || "",
-    "f1001": row.f1001 || "1",
-    "f1002": row.f1002 || "",
+    "f415": f415,
+    "f416": f416,
+    "f6": f6,
+    "f7": f7,
+    "f7a": f7a,
+    "f1001": f1001,
+    "f1002": f1002,
     "f1601": row.f1601 === "1" ? "1" : "0",
     "f1602": row.f1602 === "1" ? "1" : "0",
     "f1603": row.f1603 === "1" ? "1" : "0",
@@ -115,8 +179,8 @@ export const toKemendiktiRow = (row) => {
     "f1610": row.f1610 === "1" ? "1" : "0",
     "f1611": row.f1611 === "1" ? "1" : "0",
     "f1612": row.f1612 === "1" ? "1" : "0",
-    "f1613": row.f1613 === "1" ? "1" : "0",
-    "f1614": row.f1614 || ""
+    "f1613": f1613,
+    "f1614": f1614
   };
 };
 
