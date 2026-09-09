@@ -1,68 +1,50 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase configuration
+// ─────────────────────────────────────────────────────────────
+//  Supabase — SATU-SATUNYA sumber data untuk semua device
+//  Tidak ada localStorage. Semua baca/tulis langsung ke cloud.
+// ─────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://vczjikexwngpjuqlmase.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_WI3XbrS2joJn-bJlp_59Pw_lfuKNqmm";
 
-const STORAGE_KEY_RESPONSES = "tau_tracer_responses_real_v3";
-const STORAGE_KEY_DRAFT = "tau_tracer_draft_real_v3";
-const STORAGE_KEY_TARGET = "tau_tracer_target_graduates_v1";
+// Draft kuesioner: pakai sessionStorage (hanya per-tab, tidak perlu sinkron antar device)
+const STORAGE_KEY_DRAFT = "tau_tracer_draft_v4";
 
 // Initialize Supabase Client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Helper to convert snake_case DB columns to camelCase JS object
+// Helper: normalisasi nama kolom DB (snake_case) ke field yang dipakai UI
 const mapFromDb = (row) => {
   if (!row) return null;
   return {
     ...row,
     tahunLulus: row.tahun_lulus || row.tahunLulus,
-    submittedAt: row.submitted_at || row.submittedAt
+    submittedAt: row.submitted_at || row.submittedAt,
   };
 };
 
+// ─── READ ─────────────────────────────────────────────────────
+// Ambil SEMUA responden langsung dari Supabase (tidak ada cache lokal)
 export const getStoredResponses = async () => {
-  // Helper: get from localStorage cache
-  const getLocalCache = () => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  };
+  const { data, error } = await supabase
+    .from("tracer_responses")
+    .select("*")
+    .order("submitted_at", { ascending: false });
 
-  try {
-    // Race: Supabase vs 5-second timeout so UI never hangs
-    const supabasePromise = supabase
-      .from("tracer_responses")
-      .select("*")
-      .order("submitted_at", { ascending: false });
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Supabase timeout")), 5000)
-    );
-
-    const { data, error } = await Promise.race([supabasePromise, timeoutPromise]);
-
-    if (!error && data) {
-      const mapped = data.map(mapFromDb);
-      // Always overwrite local cache with the authoritative cloud data
-      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(mapped));
-      return mapped;
-    }
-    // Supabase returned an error — fall through to local cache
-    console.warn("Supabase returned error:", error?.message);
-  } catch (e) {
-    console.warn("Supabase fetch failed, using local cache:", e.message);
+  if (error) {
+    console.error("Gagal mengambil data dari Supabase:", error.message);
+    throw new Error(error.message);
   }
 
-  // Fallback to localStorage cache (offline / slow connection)
-  return getLocalCache();
+  return (data || []).map(mapFromDb);
 };
 
+// ─── CREATE ───────────────────────────────────────────────────
+// Simpan responden baru langsung ke Supabase
 export const saveResponse = async (newData) => {
-  const entryId = newData.id || `TAU-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+  const entryId =
+    newData.id ||
+    `TAU-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
   const submittedAt = newData.submittedAt || new Date().toISOString();
 
   const formattedData = {
@@ -123,63 +105,64 @@ export const saveResponse = async (newData) => {
     f1608: String(newData.f1608 || "0"),
     f1613: String(newData.f1613 || ""),
     f1614: String(newData.f1614 || ""),
-    submitted_at: submittedAt
+    submitted_at: submittedAt,
   };
 
-  // Save to local storage immediately
-  const localEntry = { ...newData, id: entryId, submittedAt };
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEY_RESPONSES) || "[]");
-  localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify([localEntry, ...current]));
+  const { data, error } = await supabase
+    .from("tracer_responses")
+    .insert([formattedData])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Gagal menyimpan ke Supabase:", error.message);
+    throw new Error(error.message);
+  }
+
   clearDraft();
-
-  // Save to Supabase Cloud directly
-  try {
-    await supabase.from("tracer_responses").insert([formattedData]);
-  } catch (e) {
-    console.error("Error inserting to Supabase:", e);
-  }
-
-  return localEntry;
+  return mapFromDb(data);
 };
 
+// ─── UPDATE ───────────────────────────────────────────────────
+// Update responden di Supabase, kembalikan daftar terbaru
 export const updateResponse = async (id, updatedData) => {
-  // Optimistic local update first for instant UI feedback
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEY_RESPONSES) || "[]");
-  const index = current.findIndex((item) => (item.id || item.nim) === id);
-  if (index !== -1) {
-    current[index] = { ...current[index], ...updatedData, updatedAt: new Date().toISOString() };
-    localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(current));
+  const { error } = await supabase
+    .from("tracer_responses")
+    .update(updatedData)
+    .eq("id", id);
+
+  if (error) {
+    console.error("Gagal mengupdate Supabase:", error.message);
+    throw new Error(error.message);
   }
 
-  try {
-    await supabase.from("tracer_responses").update(updatedData).eq("id", id);
-  } catch (e) {
-    console.error("Error updating Supabase:", e);
-  }
-
-  // Re-fetch from Supabase to get the authoritative list
+  // Kembalikan daftar terbaru dari Supabase
   return await getStoredResponses();
 };
 
+// ─── DELETE ───────────────────────────────────────────────────
+// Hapus responden dari Supabase, kembalikan daftar terbaru
 export const deleteResponse = async (id) => {
-  // Optimistic local delete first for instant UI feedback
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEY_RESPONSES) || "[]");
-  const updated = current.filter((item) => (item.id || item.nim) !== id);
-  localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(updated));
+  const { error } = await supabase
+    .from("tracer_responses")
+    .delete()
+    .eq("id", id);
 
-  try {
-    await supabase.from("tracer_responses").delete().eq("id", id);
-  } catch (e) {
-    console.error("Error deleting from Supabase:", e);
+  if (error) {
+    console.error("Gagal menghapus dari Supabase:", error.message);
+    throw new Error(error.message);
   }
 
-  // Re-fetch from Supabase to get the authoritative list
+  // Kembalikan daftar terbaru dari Supabase
   return await getStoredResponses();
 };
 
+// ─── TARGET LULUSAN ───────────────────────────────────────────
+// Disimpan di sessionStorage (per-session, bukan per-device permanent)
+// Nilai default 100 jika belum diset
 export const getTargetGraduates = () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_TARGET);
+    const raw = sessionStorage.getItem("tau_target_graduates");
     return raw ? parseInt(raw, 10) : 100;
   } catch (e) {
     return 100;
@@ -189,21 +172,24 @@ export const getTargetGraduates = () => {
 export const setTargetGraduates = (count) => {
   try {
     const num = Math.max(1, parseInt(count, 10) || 1);
-    localStorage.setItem(STORAGE_KEY_TARGET, String(num));
+    sessionStorage.setItem("tau_target_graduates", String(num));
     return num;
   } catch (e) {
     return 100;
   }
 };
 
-export const resetToDefaultData = () => {
-  localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify([]));
+// ─── RESET (admin only) ───────────────────────────────────────
+export const resetToDefaultData = async () => {
+  // Hanya mengembalikan array kosong (tidak ada localStorage yang perlu dihapus)
+  // Penghapusan semua data dari Supabase harus dilakukan secara manual via dashboard Supabase
   return [];
 };
 
+// ─── DRAFT (per-tab saja, tidak sinkron antar device — ini normal) ────────
 export const saveDraft = (data) => {
   try {
-    localStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(data));
+    sessionStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(data));
   } catch (e) {
     console.error("Error saving draft:", e);
   }
@@ -211,7 +197,7 @@ export const saveDraft = (data) => {
 
 export const getDraft = () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_DRAFT);
+    const raw = sessionStorage.getItem(STORAGE_KEY_DRAFT);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     return null;
@@ -219,5 +205,5 @@ export const getDraft = () => {
 };
 
 export const clearDraft = () => {
-  localStorage.removeItem(STORAGE_KEY_DRAFT);
+  sessionStorage.removeItem(STORAGE_KEY_DRAFT);
 };

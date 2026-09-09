@@ -39,17 +39,11 @@ export default function App() {
     refreshData();
   };
 
-  const handleDataUpdated = (updatedList) => {
-    // If updatedList is a Promise (from async storage ops), handle it
-    if (updatedList && typeof updatedList.then === "function") {
-      updatedList.then((data) => {
-        if (Array.isArray(data)) setRespondents(data);
-      });
-    } else if (Array.isArray(updatedList)) {
-      setRespondents(updatedList);
+  const handleDataUpdated = (freshList) => {
+    // freshList adalah array terbaru dari Supabase, langsung set ke state
+    if (Array.isArray(freshList)) {
+      setRespondents(freshList);
     }
-    // Always re-sync from Supabase after any mutation
-    refreshData();
   };
 
   const handleAdminLogin = () => {

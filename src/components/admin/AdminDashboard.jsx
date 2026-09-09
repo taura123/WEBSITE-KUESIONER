@@ -10,6 +10,7 @@ import {
   deleteResponse,
   saveResponse,
   updateResponse,
+  getStoredResponses,
   getTargetGraduates,
   setTargetGraduates
 } from "../../utils/storage";
@@ -68,30 +69,30 @@ export default function AdminDashboard({ respondents = [], onDataUpdated, onLogo
     setIsFormModalOpen(true);
   };
 
-  const handleSaveRespondentForm = (data) => {
-    const targetId = editingRespondent?.id || editingRespondent?.nim;
-    if (targetId) {
-      const updated = updateResponse(targetId, data);
-      if (onDataUpdated) onDataUpdated(updated);
-    } else {
-      saveResponse(data);
-      const fresh = getStoredResponsesSafe();
-      if (onDataUpdated) onDataUpdated(fresh);
-    }
-  };
-
-  const getStoredResponsesSafe = () => {
+  // Semua operasi simpan/edit langsung ke Supabase, lalu refresh data
+  const handleSaveRespondentForm = async (data) => {
     try {
-      const raw = localStorage.getItem("tau_tracer_responses_real_v3");
-      return raw ? JSON.parse(raw) : [];
+      const targetId = editingRespondent?.id || editingRespondent?.nim;
+      let freshList;
+      if (targetId) {
+        freshList = await updateResponse(targetId, data);
+      } else {
+        await saveResponse(data);
+        freshList = await getStoredResponses();
+      }
+      if (onDataUpdated) onDataUpdated(freshList);
     } catch (e) {
-      return [];
+      console.error("Gagal menyimpan responden:", e.message);
     }
   };
 
-  const handleDelete = (id) => {
-    const updated = deleteResponse(id);
-    if (onDataUpdated) onDataUpdated(updated);
+  const handleDelete = async (id) => {
+    try {
+      const freshList = await deleteResponse(id);
+      if (onDataUpdated) onDataUpdated(freshList);
+    } catch (e) {
+      console.error("Gagal menghapus responden:", e.message);
+    }
   };
 
   const handleSaveTarget = (num) => {
