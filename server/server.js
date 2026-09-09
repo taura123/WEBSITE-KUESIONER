@@ -12,14 +12,21 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// PostgreSQL Pool connection
-const pool = new Pool({
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "5432", 10),
-  user: process.env.DB_USER || "tau_admin",
-  password: process.env.DB_PASSWORD || "tau_password_2024",
-  database: process.env.DB_NAME || "tau_tracer_db",
-});
+// PostgreSQL Pool connection (Supports DATABASE_URL for Supabase / Cloud & env vars for local)
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        host: process.env.DB_HOST || "localhost",
+        port: parseInt(process.env.DB_PORT || "5432", 10),
+        user: process.env.DB_USER || "tau_admin",
+        password: process.env.DB_PASSWORD || "tau_password_2024",
+        database: process.env.DB_NAME || "tau_tracer_db",
+      }
+);
 
 // Middleware: Verify Admin Token for Sensitive Endpoints
 const verifyAdminToken = (req, res, next) => {
