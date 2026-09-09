@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, UserPlus, Edit3, AlertCircle } from "lucide-react";
 import { TAU_PRODI_LIST, KODE_PT_TAU } from "../../data/tauProdi";
+import { formatNumberWithDots } from "../../utils/formatters";
 
 const INITIAL_STATE = {
   kdptim: KODE_PT_TAU,
@@ -249,11 +250,11 @@ export default function RespondentFormModal({ isOpen, onClose, onSave, editData 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Pendapatan Per Bulan (Rp)</label>
               <input
-                type="number"
-                value={formData.f505}
-                onChange={(e) => handle("f505", e.target.value)}
-                placeholder="Contoh: 8500000"
-                className="form-input text-xs font-mono"
+                type="text"
+                value={formatNumberWithDots(formData.f505)}
+                onChange={(e) => handle("f505", e.target.value.replace(/\D/g, ""))}
+                placeholder="Contoh: 8.500.000"
+                className="form-input text-xs font-mono font-bold text-slate-900"
               />
             </div>
 

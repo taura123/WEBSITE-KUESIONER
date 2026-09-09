@@ -140,38 +140,38 @@ export default function AdminDashboard({ respondents = [], adminUser = null, onD
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mt-2">
+          <div className="flex flex-wrap items-center gap-2.5 mt-2">
             <button
               onClick={handleAddRespondent}
-              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-2 rounded-xl bg-white text-[#094E96] hover:bg-blue-50 font-bold text-xs shadow-md hover:shadow-lg transition-all duration-200 border border-blue-100 flex items-center gap-2"
             >
-              <UserPlus className="w-3.5 h-3.5" />
+              <UserPlus className="w-4 h-4 text-sky-600" />
               <span>+ Responden</span>
             </button>
 
             <button
               onClick={() => setIsImportModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-2 rounded-xl bg-white text-[#094E96] hover:bg-blue-50 font-bold text-xs shadow-md hover:shadow-lg transition-all duration-200 border border-blue-100 flex items-center gap-2"
               title="Import data tracer study dari Excel/CSV tahun sebelumnya"
             >
-              <Upload className="w-3.5 h-3.5" />
+              <Upload className="w-4 h-4 text-sky-600" />
               <span>Import Data (Excel/CSV)</span>
             </button>
 
             <button
               onClick={() => setIsYearModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-2 rounded-xl bg-white text-[#094E96] hover:bg-blue-50 font-bold text-xs shadow-md hover:shadow-lg transition-all duration-200 border border-blue-100 flex items-center gap-2"
               title="Atur tahun kuesioner aktif (misal 2027)"
             >
-              <Calendar className="w-3.5 h-3.5" />
+              <Calendar className="w-4 h-4 text-sky-600" />
               <span>Tahun Kuesioner ({questionnaireConfig.activeYear})</span>
             </button>
 
             <button
               onClick={() => setIsReminderOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-2 rounded-xl bg-white text-[#094E96] hover:bg-blue-50 font-bold text-xs shadow-md hover:shadow-lg transition-all duration-200 border border-blue-100 flex items-center gap-2"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-4 h-4 text-sky-600" />
               <span>Reminder Alumni (WA & Email)</span>
             </button>
           </div>

@@ -22,7 +22,12 @@ function FormField({ label, required, children, error, hint }) {
 
 export default function Step1Identity({ formData, setFormData, errors }) {
   const yearConfig = getQuestionnaireYearConfig();
-  const graduationYears = yearConfig.availableYears;
+
+  React.useEffect(() => {
+    if (yearConfig.activeYear && formData.tahun_lulus !== yearConfig.activeYear) {
+      setFormData((prev) => ({ ...prev, tahun_lulus: yearConfig.activeYear }));
+    }
+  }, [yearConfig.activeYear]);
 
   const handle = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -73,19 +78,15 @@ export default function Step1Identity({ formData, setFormData, errors }) {
           />
         </FormField>
 
-        {/* Tahun Lulus */}
-        <FormField label="Tahun Lulus / Wisuda" required error={errors?.tahun_lulus}>
-          <select
+        {/* Tahun Lulus (Tepat Sesuai Konfigurasi Admin Dashboard) */}
+        <FormField label="Tahun Lulus / Wisuda" required hint="Terunci otomatis sesuai periode kuesioner aktif dari Admin">
+          <input
             id="input-tahun_lulus"
-            value={formData.tahun_lulus || ""}
-            onChange={(e) => handle("tahun_lulus", e.target.value)}
-            className={`form-input ${errors?.tahun_lulus ? "border-red-400 ring-1 ring-red-400" : ""}`}
-          >
-            <option value="">-- Pilih Tahun Lulus --</option>
-            {graduationYears.map((y) => (
-              <option key={y} value={String(y)}>Tahun {y}</option>
-            ))}
-          </select>
+            type="text"
+            readOnly
+            value={`Tahun ${yearConfig.activeYear || "2026"}`}
+            className="form-input bg-slate-100 font-bold text-slate-800 border-slate-300 cursor-not-allowed shadow-xs"
+          />
         </FormField>
 
         {/* Nama Lengkap */}

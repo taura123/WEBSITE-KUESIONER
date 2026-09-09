@@ -15,6 +15,13 @@ export const parseNumberOnly = (str) => {
   return String(str).replace(/\D/g, "");
 };
 
+export const formatNumberWithDots = (val) => {
+  if (!val && val !== 0) return "";
+  const numStr = String(val).replace(/\D/g, "");
+  if (!numStr) return "";
+  return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
 export const getF8Label = (code) => {
   switch (String(code)) {
     case "1": return "Bekerja";

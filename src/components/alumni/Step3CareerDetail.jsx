@@ -1,6 +1,7 @@
 import React from "react";
 import { MapPin, Building2, Briefcase, GraduationCap } from "lucide-react";
 import { F1201_OPTIONS, PROVINSI_INDONESIA } from "../../data/kemendiktiSchema";
+import { formatNumberWithDots } from "../../utils/formatters";
 
 const FormField = ({ label, id, value, onChange, placeholder, type = "text", error, prefix, required }) => (
   <div className="space-y-1.5">
@@ -130,18 +131,20 @@ export default function Step3CareerDetail({ formData, setFormData, errors }) {
                 Rata-rata pendapatan per bulan (Take Home Pay) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rp</div>
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">Rp</div>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
                   id="f505"
                   name="f505"
-                  value={formData.f505}
-                  onChange={handleChange}
-                  className={`form-input w-full pl-9 bg-white border ${
+                  value={formatNumberWithDots(formData.f505)}
+                  onChange={(e) => {
+                    const cleanDigits = e.target.value.replace(/\D/g, "");
+                    setFormData((prev) => ({ ...prev, f505: cleanDigits }));
+                  }}
+                  className={`form-input w-full pl-9 font-semibold text-slate-900 bg-white border ${
                     errors.f505 ? "border-red-300" : "border-slate-200"
                   }`}
-                  placeholder="Misal: 6000000"
+                  placeholder="Contoh: 8.500.000"
                 />
               </div>
               {errors.f505 && <p className="text-red-500 text-xs">{errors.f505}</p>}
