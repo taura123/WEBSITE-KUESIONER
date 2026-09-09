@@ -15,29 +15,20 @@ export default function App() {
     return sessionStorage.getItem("tau_admin_auth") === "true";
   });
 
-  // Always keep fresh data from storage
-  const refreshData = () => {
-    const data = getStoredResponses();
-    setRespondents(data);
+  // Always keep fresh data from storage / Supabase
+  const refreshData = async () => {
+    try {
+      const data = await getStoredResponses();
+      if (Array.isArray(data)) {
+        setRespondents(data);
+      }
+    } catch (e) {
+      console.error("Error refreshing data:", e);
+    }
   };
 
   useEffect(() => {
     refreshData();
-    // Try to fetch from backend API if available
-    fetch("http://localhost:5000/api/responses")
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Network response was not ok");
-      })
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setRespondents(data);
-          localStorage.setItem("tau_tracer_responses_real_v3", JSON.stringify(data));
-        }
-      })
-      .catch(() => {
-        // Backend not running or unreachable, fallback to localStorage gracefully
-      });
   }, [activeTab]);
 
   const handleSubmittedSuccess = () => {
