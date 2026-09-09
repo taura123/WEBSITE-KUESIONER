@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #F8FAFC; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #1B3A7A; }
+}
+
+@layer components {
+  /* Base Card */
+  .card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid #E2E8F0;
+  }
+
+  .card-hover {
+    transition: all 0.2s ease;
+  }
+  .card-hover:hover {
+    box-shadow: 0 4px 20px -2px rgba(27, 58, 122, 0.08);
+    border-color: #CBD5E1;
+  }
+
+  /* Form Input */
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #CBD5E1;
+    background: #FFFFFF;
+    color: #0F172A;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    outline: none;
+  }
+  .form-input::placeholder { color: #94A3B8; }
+  .form-input:focus {
+    border-color: #1B3A7A;
+    box-shadow: 0 0 0 3px rgba(27, 58, 122, 0.10);
+  }
+  .form-input:disabled {
+    background: #F8FAFC;
+    color: #94A3B8;
+    cursor: not-allowed;
+  }
+
+  /* Primary Button */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: #1B3A7A;
+    color: #FFFFFF;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  .btn-primary:hover {
+    background: #112855;
+  }
+  .btn-primary:active { transform: scale(0.99); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Secondary Button */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: #FFFFFF;
+    color: #1B3A7A;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid #CBD5E1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-secondary:hover {
+    background: #F1F5F9;
+    border-color: #94A3B8;
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: transparent;
+    color: #64748B;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: 1px solid #E2E8F0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-ghost:hover { background: #F8FAFC; border-color: #CBD5E1; color: #0F172A; }
+
+  /* Status Badges */
+  .badge-bekerja    { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+  .badge-wiraswasta { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+  .badge-studi      { background: #FAF5FF; color: #7E22CE; border: 1px solid #E9D5FF; }
+  .badge-cari       { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+  .badge-belum      { background: #F8FAFC; color: #475569; border: 1px solid #E2E8F0; }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+    margin-bottom: 4px;
+  }
+}
+
+/* Print Specific Styles */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  header, footer, nav, .no-print, button, .print\\:hidden {
+    display: none !important;
+  }
+  #printable-receipt {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: 1.5px solid #CBD5E1 !important;
+    padding: 24px !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out;
+}
+
+/* Mobile-Specific Adjustments */
+@media (max-width: 639px) {
+  /* Ensure form inputs are readable and touch-friendly on mobile */
+  .form-input {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+
+  select.form-input {
+    font-size: 16px;
+  }
+
+  /* Compact cards on mobile */
+  .card {
+    border-radius: 12px;
+  }
+
+  /* Prevent text from becoming too small */
+  .section-label {
+    font-size: 0.6875rem;
+  }
+}
+

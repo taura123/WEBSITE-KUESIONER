@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Container for TAU Tracer Study
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: tau_tracer_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tau_admin
+      POSTGRES_PASSWORD: tau_password_2024
+      POSTGRES_DB: tau_tracer_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - tau_pgdata:/var/lib/postgresql/data
+      - ./server/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - tau_network
+
+  # Backend Node.js API Service
+  backend_api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: tau_tracer_api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      DB_USER: tau_admin
+      DB_PASSWORD: tau_password_2024
+      DB_NAME: tau_tracer_db
+    depends_on:
+      - postgres_db
+    networks:
+      - tau_network
+
+volumes:
+  tau_pgdata:
+    driver: local
+
+networks:
+  tau_network:
+    driver: bridge

@@ -1,0 +1,56 @@
+-- Database Schema for Tanri Abeng University (TAU) Tracer Study
+-- Conforming to Kemendiktisaintek (Belmawa) official specification
+
+CREATE TABLE IF NOT EXISTS tracer_responses (
+    id VARCHAR(50) PRIMARY KEY,
+    kdptim VARCHAR(10) DEFAULT '031054',
+    kdpst VARCHAR(10) NOT NULL,
+    nim VARCHAR(30) NOT NULL,
+    nama VARCHAR(150) NOT NULL,
+    hp VARCHAR(30) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    nik VARCHAR(20) NOT NULL,
+    npwp VARCHAR(30),
+    tahun_lulus VARCHAR(10) NOT NULL,
+    f8 VARCHAR(5) NOT NULL,
+    f502 VARCHAR(10),
+    f505 VARCHAR(20),
+    f5a1 VARCHAR(10),
+    f5a2 VARCHAR(100),
+    f1101 VARCHAR(10),
+    f1102 VARCHAR(100),
+    f5b VARCHAR(150),
+    f5c VARCHAR(10),
+    f5d VARCHAR(10),
+    f18a VARCHAR(10),
+    f18b VARCHAR(150),
+    f18c VARCHAR(150),
+    f18d VARCHAR(30),
+    f1001 VARCHAR(10),
+    f1002 VARCHAR(255),
+    f1301a VARCHAR(5), f1301b VARCHAR(5),
+    f1302a VARCHAR(5), f1302b VARCHAR(5),
+    f1303a VARCHAR(5), f1303b VARCHAR(5),
+    f1304a VARCHAR(5), f1304b VARCHAR(5),
+    f1305a VARCHAR(5), f1305b VARCHAR(5),
+    f1306a VARCHAR(5), f1306b VARCHAR(5),
+    f1307a VARCHAR(5), f1307b VARCHAR(5),
+    f1401 VARCHAR(5), f1402 VARCHAR(5), f1403 VARCHAR(5), f1404 VARCHAR(5), f1405 VARCHAR(5),
+    f11 VARCHAR(5),
+    f12 VARCHAR(5),
+    f1601 VARCHAR(5) DEFAULT '0',
+    f1602 VARCHAR(5) DEFAULT '0',
+    f1603 VARCHAR(5) DEFAULT '0',
+    f1604 VARCHAR(5) DEFAULT '0',
+    f1605 VARCHAR(5) DEFAULT '0',
+    f1606 VARCHAR(5) DEFAULT '0',
+    f1607 VARCHAR(5) DEFAULT '0',
+    f1608 VARCHAR(5) DEFAULT '0',
+    f1613 VARCHAR(10),
+    f1614 VARCHAR(10),
+    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tracer_nim ON tracer_responses(nim);
+CREATE INDEX IF NOT EXISTS idx_tracer_kdpst ON tracer_responses(kdpst);
+CREATE INDEX IF NOT EXISTS idx_tracer_tahun_lulus ON tracer_responses(tahun_lulus);
