@@ -45,14 +45,36 @@ const verifyAdminToken = (req, res, next) => {
 // Admin Login Endpoint
 app.post("/api/admin/login", (req, res) => {
   const { email, password } = req.body;
-  const adminEmail = process.env.ADMIN_EMAIL || "biro.kemahasiswaan@tau.ac.id";
-  const adminPassword = process.env.ADMIN_PASSWORD || "birokemahasiswaan";
+  const inputEmail = String(email || "").trim().toLowerCase();
 
-  if (email === adminEmail && password === adminPassword) {
+  const VALID_ADMINS = [
+    {
+      email: "student.affairs@tau.ac.id",
+      password: "kemahasiswaantau",
+      name: "Student Affairs TAU",
+      role: "admin"
+    },
+    {
+      email: "biro.kemahasiswaan@tau.ac.id",
+      password: "birokemahasiswaan",
+      name: "Biro Kemahasiswaan & Alumni",
+      role: "admin"
+    }
+  ];
+
+  const foundAdmin = VALID_ADMINS.find(
+    (acc) => acc.email.toLowerCase() === inputEmail && acc.password === password
+  );
+
+  if (foundAdmin) {
     return res.json({
       success: true,
       token: "tau_session_token_" + Date.now(),
-      user: { email: adminEmail, role: "admin" }
+      user: {
+        email: foundAdmin.email,
+        name: foundAdmin.name,
+        role: foundAdmin.role
+      }
     });
   }
   return res.status(401).json({ error: "Email atau password salah." });

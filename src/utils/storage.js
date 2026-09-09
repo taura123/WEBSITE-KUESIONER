@@ -227,4 +227,131 @@ export const clearDraft = () => {
   } catch (e) {}
 };
 
+// ─── ADMIN SESSION MANAGEMENT ─────────────────────────────────
+const STORAGE_KEY_ADMIN_SESSION = "tau_admin_session_v2";
+
+export const getAdminSession = () => {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_ADMIN_SESSION);
+    if (raw) {
+      const session = JSON.parse(raw);
+      // Optional expiry check (e.g. 12 hours)
+      if (session.expiresAt && Date.now() > session.expiresAt) {
+        clearAdminSession();
+        return null;
+      }
+      return session;
+    }
+    // Fallback for legacy auth flag
+    if (sessionStorage.getItem("tau_admin_auth") === "true") {
+      const fallbackEmail = sessionStorage.getItem("tau_admin_email") || "biro.kemahasiswaan@tau.ac.id";
+      return {
+        email: fallbackEmail,
+        role: "admin",
+        name: fallbackEmail.startsWith("student") ? "Student Affairs TAU" : "Biro Kemahasiswaan & Alumni",
+        token: sessionStorage.getItem("tau_admin_token") || "tau_session_token_legacy"
+      };
+    }
+  } catch (e) {}
+  return null;
+};
+
+export const setAdminSession = (userObj, token = null) => {
+  try {
+    const expiresAt = Date.now() + 12 * 60 * 60 * 1000; // 12 hours valid session
+    const sessionPayload = {
+      email: userObj.email,
+      name: userObj.name || userObj.email.split("@")[0],
+      role: userObj.role || "admin",
+      token: token || `tau_token_${Date.now()}`,
+      loginAt: new Date().toISOString(),
+      expiresAt
+    };
+    sessionStorage.setItem(STORAGE_KEY_ADMIN_SESSION, JSON.stringify(sessionPayload));
+    sessionStorage.setItem("tau_admin_auth", "true");
+    sessionStorage.setItem("tau_admin_email", userObj.email);
+    if (token) sessionStorage.setItem("tau_admin_token", token);
+    return sessionPayload;
+  } catch (e) {
+    console.error("Failed to store admin session:", e);
+    return null;
+  }
+};
+
+export const clearAdminSession = () => {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY_ADMIN_SESSION);
+    sessionStorage.removeItem("tau_admin_auth");
+    sessionStorage.removeItem("tau_admin_email");
+    sessionStorage.removeItem("tau_admin_token");
+  } catch (e) {}
+};
+
+// ─── QUESTIONNAIRE YEAR CONFIGURATION ──────────────────────────
+const STORAGE_KEY_YEAR_CONFIG = "tau_questionnaire_year_config_v1";
+
+const DEFAULT_YEAR_CONFIG = {
+  activeYear: "2026",
+  availableYears: ["2023", "2024", "2025", "2026", "2027", "2028"]
+};
+
+export const getQuestionnaireYearConfig = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_YEAR_CONFIG) || sessionStorage.getItem(STORAGE_KEY_YEAR_CONFIG);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        activeYear: parsed.activeYear || DEFAULT_YEAR_CONFIG.activeYear,
+        availableYears: Array.isArray(parsed.availableYears) && parsed.availableYears.length > 0
+          ? Array.from(new Set(parsed.availableYears)).sort((a, b) => b - a)
+          : DEFAULT_YEAR_CONFIG.availableYears
+      };
+    }
+  } catch (e) {}
+  return DEFAULT_YEAR_CONFIG;
+};
+
+export const setQuestionnaireYearConfig = (config) => {
+  try {
+    const payload = {
+      activeYear: String(config.activeYear || "2026"),
+      availableYears: Array.isArray(config.availableYears)
+        ? Array.from(new Set([...config.availableYears, config.activeYear])).map(String).sort((a, b) => b - a)
+        : DEFAULT_YEAR_CONFIG.availableYears
+    };
+    localStorage.setItem(STORAGE_KEY_YEAR_CONFIG, JSON.stringify(payload));
+    sessionStorage.setItem(STORAGE_KEY_YEAR_CONFIG, JSON.stringify(payload));
+    return payload;
+  } catch (e) {
+    return DEFAULT_YEAR_CONFIG;
+  }
+};
+
+// ─── BULK SAVE RESPONSES (FOR EXCEL/CSV IMPORT) ────────────────
+export const bulkSaveResponses = async (itemsList) => {
+  if (!Array.isArray(itemsList) || itemsList.length === 0) {
+    return await getStoredResponses();
+  }
+
+  const formattedRows = itemsList.map((item) => formatForDb(item));
+
+  try {
+    const { error } = await supabase.from("tracer_responses").insert(formattedRows);
+    if (error) {
+      console.error("Supabase bulk insert error:", error.message);
+      // Fallback single-item inserts if bulk fails
+      for (const row of formattedRows) {
+        try {
+          await supabase.from("tracer_responses").insert([row]);
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    console.error("Supabase bulk insert exception:", e);
+  }
+
+  return await getStoredResponses();
+};
+
+
 

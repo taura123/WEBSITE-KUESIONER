@@ -5,7 +5,7 @@ import Step3CareerDetail from "./Step3CareerDetail";
 import Step4Competency from "./Step4Competency";
 import Step5CareerChannel from "./Step5CareerChannel";
 import SubmissionSuccessModal from "./SubmissionSuccessModal";
-import { saveResponse, saveDraft, getDraft, clearDraft } from "../../utils/storage";
+import { saveResponse, saveDraft, getDraft, clearDraft, getQuestionnaireYearConfig } from "../../utils/storage";
 import { Check, ChevronRight, ChevronLeft, Send, RotateCcw } from "lucide-react";
 
 const INITIAL = {
@@ -17,7 +17,7 @@ const INITIAL = {
   email: "",
   nik: "",
   npwp: "",
-  tahun_lulus: String(new Date().getFullYear()),
+  tahun_lulus: getQuestionnaireYearConfig().activeYear || "2026",
   
   // Q1
   f8: "1",
@@ -84,7 +84,8 @@ const STEPS = [
 
 export default function TracerFormWizard({ onSubmittedSuccess }) {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState(INITIAL);
+  const [yearConfig, setYearConfig] = useState(() => getQuestionnaireYearConfig());
+  const [formData, setFormData] = useState(() => ({ ...INITIAL, tahun_lulus: yearConfig.activeYear }));
   const [errors, setErrors] = useState({});
   const [done, setDone] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
@@ -92,8 +93,14 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   useEffect(() => {
+    const freshCfg = getQuestionnaireYearConfig();
+    setYearConfig(freshCfg);
     const d = getDraft();
-    if (d) setFormData({ ...INITIAL, ...d });
+    if (d) {
+      setFormData({ ...INITIAL, ...d });
+    } else {
+      setFormData((prev) => ({ ...prev, tahun_lulus: freshCfg.activeYear }));
+    }
   }, []);
 
   // Silent auto-save to prevent any jitter / layout shifts
@@ -197,7 +204,9 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
       {/* Top Card */}
       <div className="card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
-          <h1 className="text-base sm:text-xl font-bold text-[#0F172A] leading-tight">Kuesioner Tracer Study Tanri Abeng University</h1>
+          <h1 className="text-base sm:text-xl font-bold text-[#0F172A] leading-tight">
+            Kuesioner Tracer Study Tanri Abeng University {yearConfig.activeYear}
+          </h1>
           <p className="text-[11px] sm:text-sm text-slate-500 mt-0.5">
             Tanri Abeng University · Standar Kemendiktisaintek RI
           </p>

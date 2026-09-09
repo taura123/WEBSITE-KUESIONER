@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { MessageSquare, Mail, Send, Copy, Check, X, Users, Sparkles } from "lucide-react";
 
-export default function ReminderModal({ isOpen, onClose }) {
+export default function ReminderModal({ isOpen, onClose, adminEmail = null }) {
   const [activeChannel, setActiveChannel] = useState("wa"); // 'wa' | 'email' | 'blast'
   const [copied, setCopied] = useState(false);
   const [alumniName, setAlumniName] = useState("");
@@ -10,6 +10,10 @@ export default function ReminderModal({ isOpen, onClose }) {
   const [blastEmails, setBlastEmails] = useState(
     "alumni1@tau.ac.id, alumni2@gmail.com, alumni3@yahoo.com"
   );
+
+  // Active logged in sender email
+  const senderEmail = adminEmail || sessionStorage.getItem("tau_admin_email") || "student.affairs@tau.ac.id";
+
   const [subject, setSubject] = useState("[TAU Tracer Study 2026] Undangan Pengisian Kuesioner Resmi Alumni");
 
   if (!isOpen) return null;
@@ -25,7 +29,7 @@ Kami mengundang Anda untuk berpartisipasi dalam *Kuesioner Tracer Study Alumni T
 ⏱️ Estimasi Waktu: 3 - 5 Menit
 
 Terima kasih atas kontribusi Anda untuk almamater tercinta.
-_Biro Kemahasiswaan & Alumni Tanri Abeng University_`;
+_Pengelola / Biro Kemahasiswaan & Alumni TAU_ (${senderEmail})`;
 
   const emailBodyText = `Yth. Rekan Alumni Tanri Abeng University,
 
@@ -43,7 +47,7 @@ Atas partisipasi dan kontribusi aktif Anda demi kemajuan almamater Tanri Abeng U
 Hormat kami,
 Biro Kemahasiswaan & Alumni (BKHA)
 Tanri Abeng University
-Email: alumni@tau.ac.id | Telp: (021) 5890-8888`;
+Email Pengirim: ${senderEmail} | Telp: (021) 5890-8888`;
 
   const handleCopyText = (txt) => {
     navigator.clipboard.writeText(txt);
@@ -71,10 +75,9 @@ Email: alumni@tau.ac.id | Telp: (021) 5890-8888`;
       .map((e) => e.trim())
       .filter((e) => e.length > 3);
     const bccList = cleanList.join(",");
-    // Set official 'to' email to alumni@tau.ac.id so recipient email providers do not mark it as headerless spam
-    const mailtoUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=alumni@tau.ac.id&bcc=${encodeURIComponent(
-      bccList
-    )}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBodyText)}`;
+    const mailtoUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+      senderEmail
+    )}&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBodyText)}`;
     window.open(mailtoUrl, "_blank");
   };
 
@@ -90,7 +93,7 @@ Email: alumni@tau.ac.id | Telp: (021) 5890-8888`;
             <div>
               <h3 className="text-base font-bold text-white">Reminder & Broadcast Center</h3>
               <p className="text-xs text-slate-300">
-                Kirim pesan pengingat tracer study via WhatsApp, Gmail, atau Email Blast.
+                Email Pengirim (Akun Login): <span className="font-semibold text-sky-300 underline">{senderEmail}</span>
               </p>
             </div>
           </div>

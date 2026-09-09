@@ -18,8 +18,7 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-slate-300 text-[11px] sm:text-xs leading-relaxed">
-              Biro Kemahasiswaan, Karir & Hubungan Alumni (BKHA)<br />
-              Sistem Kuesioner Tracer Study berstandar Kemendiktisaintek RI.
+              Biro Kemahasiswaan, Karir & Hubungan Alumni (BKHA)
             </p>
           </div>
 
@@ -63,7 +62,6 @@ export default function Footer() {
 
         <div className="border-t border-slate-700/80 pt-4 sm:pt-6 mt-6 sm:mt-8 flex flex-col gap-1.5 sm:flex-row sm:justify-between items-center text-slate-400 text-[10px] sm:text-xs">
           <span>© {new Date().getFullYear()} Tanri Abeng University. All Rights Reserved.</span>
-          <span>Tracer Study & Employability Tracker · Belmawa Kemendiktisaintek Compliant</span>
         </div>
       </div>
     </footer>

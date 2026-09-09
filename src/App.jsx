@@ -4,7 +4,7 @@ import Footer from "./components/common/Footer";
 import TracerFormWizard from "./components/alumni/TracerFormWizard";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import AdminLoginPage from "./components/admin/AdminLoginPage";
-import { getStoredResponses, supabase } from "./utils/storage";
+import { getStoredResponses, supabase, getAdminSession, clearAdminSession } from "./utils/storage";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -12,9 +12,9 @@ export default function App() {
   });
   const [respondents, setRespondents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
-    return sessionStorage.getItem("tau_admin_auth") === "true";
-  });
+  const [adminUser, setAdminUser] = useState(() => getAdminSession());
+
+  const isAdminAuthenticated = Boolean(adminUser);
 
   // Always keep fresh data from Supabase cloud (authoritative source)
   const refreshData = async (showLoading = false) => {
@@ -34,13 +34,13 @@ export default function App() {
   useEffect(() => {
     refreshData(true);
 
-    // 1. Listen for window focus (ketika user buka/pindah tab di HP, otomatis sync data terbaru)
+    // 1. Listen for window focus
     const handleFocus = () => {
       refreshData(false);
     };
     window.addEventListener("focus", handleFocus);
 
-    // 2. Real-time sync via Supabase Channel (langsung update saat ada tambah/edit/hapus dari device lain)
+    // 2. Real-time sync via Supabase Channel
     const channel = supabase
       .channel("public:tracer_responses")
       .on(
@@ -67,24 +67,23 @@ export default function App() {
   };
 
   const handleDataUpdated = (freshList) => {
-    // freshList adalah array terbaru dari Supabase, langsung set ke state
     if (Array.isArray(freshList)) {
       setRespondents(freshList);
     }
   };
 
-  const handleAdminLogin = () => {
-    sessionStorage.setItem("tau_admin_auth", "true");
+  const handleAdminLogin = (userObj) => {
+    const freshSession = userObj || getAdminSession();
+    setAdminUser(freshSession);
     sessionStorage.setItem("tau_active_tab", "admin");
-    setIsAdminAuthenticated(true);
     setActiveTab("admin");
     refreshData(true);
   };
 
   const handleAdminLogout = () => {
-    sessionStorage.removeItem("tau_admin_auth");
+    clearAdminSession();
+    setAdminUser(null);
     sessionStorage.setItem("tau_active_tab", "alumni");
-    setIsAdminAuthenticated(false);
     setActiveTab("alumni");
   };
 
@@ -100,6 +99,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         isAdmin={isAdminAuthenticated && activeTab === "admin"}
+        adminUser={adminUser}
         onLogout={handleAdminLogout}
       />
 
@@ -109,7 +109,7 @@ export default function App() {
         ) : !isAdminAuthenticated ? (
           <AdminLoginPage onLoginSuccess={handleAdminLogin} />
         ) : isLoading ? (
-          /* Loading spinner — shown while fetching data from Supabase on any device */
+          /* Loading spinner */
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
             <svg className="animate-spin w-12 h-12 text-[#094E96]" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -120,6 +120,7 @@ export default function App() {
         ) : (
           <AdminDashboard
             respondents={respondents}
+            adminUser={adminUser}
             onDataUpdated={handleDataUpdated}
             onLogout={handleAdminLogout}
           />

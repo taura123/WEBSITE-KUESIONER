@@ -1,5 +1,6 @@
 import React from "react";
 import { TAU_PRODI_LIST, KODE_PT_TAU } from "../../data/tauProdi";
+import { getQuestionnaireYearConfig } from "../../utils/storage";
 import { AlertCircle } from "lucide-react";
 
 function FormField({ label, required, children, error, hint }) {
@@ -20,8 +21,8 @@ function FormField({ label, required, children, error, hint }) {
 }
 
 export default function Step1Identity({ formData, setFormData, errors }) {
-  const currentYear = new Date().getFullYear();
-  const graduationYears = [2026];
+  const yearConfig = getQuestionnaireYearConfig();
+  const graduationYears = yearConfig.availableYears;
 
   const handle = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

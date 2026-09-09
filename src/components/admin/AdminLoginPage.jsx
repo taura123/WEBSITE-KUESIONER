@@ -1,10 +1,21 @@
 import React, { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2 } from "lucide-react";
+import { setAdminSession } from "../../utils/storage";
 
-const ADMIN_CREDENTIALS = {
-  email: "biro.kemahasiswaan@tau.ac.id",
-  password: "birokemahasiswaan"
-};
+const ALLOWED_ADMINS = [
+  {
+    email: "student.affairs@tau.ac.id",
+    password: "kemahasiswaantau",
+    name: "Student Affairs TAU",
+    role: "admin"
+  },
+  {
+    email: "biro.kemahasiswaan@tau.ac.id",
+    password: "birokemahasiswaan",
+    name: "Biro Kemahasiswaan & Alumni",
+    role: "admin"
+  }
+];
 
 export default function AdminLoginPage({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
@@ -18,9 +29,10 @@ export default function AdminLoginPage({ onLoginSuccess }) {
     setError("");
     setIsLoading(true);
 
+    const trimmedEmail = email.trim().toLowerCase();
+
     try {
       // Try backend API first — use relative URL so it works from any host/IP
-      // If frontend is served from the same origin, use relative; otherwise try Supabase fallback
       const apiBase = window.location.hostname === "localhost"
         ? "http://localhost:5000"
         : `http://${window.location.hostname}:5000`;
@@ -28,34 +40,39 @@ export default function AdminLoginPage({ onLoginSuccess }) {
       const res = await fetch(`${apiBase}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-        signal: AbortSignal.timeout(4000) // 4s timeout so we don't hang on other devices
+        body: JSON.stringify({ email: trimmedEmail, password }),
+        signal: AbortSignal.timeout(4000)
       });
 
       if (res.ok) {
         const data = await res.json();
-        sessionStorage.setItem("tau_admin_auth", "true");
-        if (data.token) sessionStorage.setItem("tau_admin_token", data.token);
-        onLoginSuccess();
-        return;
-      } else {
-        setError("Email atau password tidak valid.");
+        const userObj = data.user || {
+          email: trimmedEmail,
+          name: trimmedEmail.startsWith("student") ? "Student Affairs TAU" : "Biro Kemahasiswaan & Alumni",
+          role: "admin"
+        };
+        setAdminSession(userObj, data.token);
+        if (onLoginSuccess) onLoginSuccess(userObj);
         return;
       }
     } catch {
-      // Backend not reachable — fallback to client-side check
-      // This allows login from devices that can't reach the Docker backend
+      // Backend offline / un-reachable fallback
     }
 
-    // Fallback credential check (works offline / from any device)
-    if (
-      email.trim().toLowerCase() === ADMIN_CREDENTIALS.email &&
-      password === ADMIN_CREDENTIALS.password
-    ) {
-      sessionStorage.setItem("tau_admin_auth", "true");
-      onLoginSuccess();
+    // Client-side secure fallback check for injected users
+    const matchedAccount = ALLOWED_ADMINS.find(
+      (acc) => acc.email.toLowerCase() === trimmedEmail && acc.password === password
+    );
+
+    if (matchedAccount) {
+      const sessionObj = setAdminSession({
+        email: matchedAccount.email,
+        name: matchedAccount.name,
+        role: matchedAccount.role
+      });
+      if (onLoginSuccess) onLoginSuccess(sessionObj);
     } else {
-      setError("Email atau password tidak valid. Hubungi administrator sistem.");
+      setError("Email atau password salah. Pastikan menggunakan akun resmi TAU.");
     }
 
     setIsLoading(false);

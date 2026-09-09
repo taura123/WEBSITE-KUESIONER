@@ -6,13 +6,16 @@ import RespondentDetailModal from "./RespondentDetailModal";
 import RespondentFormModal from "./RespondentFormModal";
 import TargetGraduatesModal from "./TargetGraduatesModal";
 import ReminderModal from "./ReminderModal";
+import ImportTracerModal from "./ImportTracerModal";
+import QuestionnaireYearModal from "./QuestionnaireYearModal";
 import {
   deleteResponse,
   saveResponse,
   updateResponse,
   getStoredResponses,
   getTargetGraduates,
-  setTargetGraduates
+  setTargetGraduates,
+  getQuestionnaireYearConfig
 } from "../../utils/storage";
 import {
   GraduationCap,
@@ -21,10 +24,12 @@ import {
   Briefcase,
   MessageSquare,
   Edit2,
-  UserPlus
+  UserPlus,
+  Upload,
+  Calendar
 } from "lucide-react";
 
-export default function AdminDashboard({ respondents = [], onDataUpdated, onLogout }) {
+export default function AdminDashboard({ respondents = [], adminUser = null, onDataUpdated, onLogout }) {
   const [selectedYear, setSelectedYear] = useState("Semua");
   const [selectedRespondent, setSelectedRespondent] = useState(null);
   const [isReminderOpen, setIsReminderOpen] = useState(false);
@@ -32,6 +37,10 @@ export default function AdminDashboard({ respondents = [], onDataUpdated, onLogo
   const [editingRespondent, setEditingRespondent] = useState(null);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [targetGraduates, setTargetGraduatesState] = useState(100);
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isYearModalOpen, setIsYearModalOpen] = useState(false);
+  const [questionnaireConfig, setQuestionnaireConfig] = useState(() => getQuestionnaireYearConfig());
 
   useEffect(() => {
     setTargetGraduatesState(getTargetGraduates());
@@ -131,17 +140,36 @@ export default function AdminDashboard({ respondents = [], onDataUpdated, onLogo
             </span>
           </div>
 
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             <button
               onClick={handleAddRespondent}
-              className="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>+ Responden</span>
             </button>
+
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Import data tracer study dari Excel/CSV tahun sebelumnya"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Import Data (Excel/CSV)</span>
+            </button>
+
+            <button
+              onClick={() => setIsYearModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Atur tahun kuesioner aktif (misal 2027)"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Tahun Kuesioner ({questionnaireConfig.activeYear})</span>
+            </button>
+
             <button
               onClick={() => setIsReminderOpen(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>Reminder Alumni (WA & Email)</span>
@@ -299,6 +327,23 @@ export default function AdminDashboard({ respondents = [], onDataUpdated, onLogo
       <ReminderModal
         isOpen={isReminderOpen}
         onClose={() => setIsReminderOpen(false)}
+        adminEmail={adminUser?.email}
+      />
+
+      {/* Excel / CSV Import Modal */}
+      <ImportTracerModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onDataImported={(freshList) => {
+          if (onDataUpdated) onDataUpdated(freshList);
+        }}
+      />
+
+      {/* Questionnaire Year Config Modal */}
+      <QuestionnaireYearModal
+        isOpen={isYearModalOpen}
+        onClose={() => setIsYearModalOpen(false)}
+        onYearConfigUpdated={(newCfg) => setQuestionnaireConfig(newCfg)}
       />
     </div>
   );
