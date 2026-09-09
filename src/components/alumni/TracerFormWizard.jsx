@@ -103,6 +103,54 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
     }
   }, []);
 
+  // Bersihkan field yang tidak relevan saat f8 berubah
+  // Ini penting agar ekspor XLSX tidak mengandung data "hantu" dari seksi yang tidak ditampilkan
+  const handleSetFormData = (updaterOrValue) => {
+    setFormData((prev) => {
+      const next = typeof updaterOrValue === "function" ? updaterOrValue(prev) : updaterOrValue;
+      
+      // Deteksi perubahan f8
+      if (next.f8 !== prev.f8) {
+        const f8 = next.f8;
+        
+        // Reset field pekerjaan/wiraswasta jika bukan f8=1 atau f8=3
+        if (f8 !== "1" && f8 !== "3") {
+          next.f502 = ""; next.f505 = "";
+          next.f5a1 = ""; next.f5a2 = "";
+          next.f5d = "";
+        }
+        // Reset field khusus Bekerja jika bukan f8=1
+        if (f8 !== "1") {
+          next.f1101 = ""; next.f1102 = "";
+          next.f5b = "";
+          next.f14 = ""; next.f15 = "";
+        }
+        // Reset field khusus Wiraswasta jika bukan f8=3
+        if (f8 !== "3") {
+          next.f5c = "";
+        }
+        // Reset field Lanjut Studi jika bukan f8=4
+        if (f8 !== "4") {
+          next.f18a = ""; next.f18b = ""; next.f18c = ""; next.f18d = "";
+        }
+        // Untuk Lanjut Studi: reset semua field karir dan pencarian kerja
+        if (f8 === "4") {
+          next.f1201 = ""; next.f1202 = "";
+          next.f301 = ""; next.f302 = ""; next.f303 = "0";
+          next.f6 = ""; next.f7 = ""; next.f7a = "";
+          next.f1001 = ""; next.f1002 = "";
+        }
+        // Untuk Belum Memungkinkan Bekerja (f8=2) dan Mencari Kerja (f8=5):
+        // reset pencarian kerja timing (akan diisi ulang oleh user)
+        if (f8 === "2" || f8 === "5") {
+          next.f301 = ""; next.f302 = ""; next.f303 = "0";
+        }
+      }
+      
+      return next;
+    });
+  };
+
   // Silent auto-save to prevent any jitter / layout shifts
   useEffect(() => {
     if (!done) {
@@ -281,7 +329,7 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
       <div className="card p-4 sm:p-6 md:p-8">
         <form onSubmit={(e) => { e.preventDefault(); if (step === 5) handleOpenConfirmModal(e); }}>
           {step === 1 && <Step1Identity formData={formData} setFormData={setFormData} errors={errors} />}
-          {step === 2 && <Step2JobStatus formData={formData} setFormData={setFormData} errors={errors} />}
+          {step === 2 && <Step2JobStatus formData={formData} setFormData={handleSetFormData} errors={errors} />}
           {step === 3 && <Step3CareerDetail formData={formData} setFormData={setFormData} errors={errors} />}
           {step === 4 && <Step4Competency formData={formData} setFormData={setFormData} />}
           {step === 5 && <Step5CareerChannel formData={formData} setFormData={setFormData} />}
