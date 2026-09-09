@@ -168,9 +168,9 @@ export default function TracerFormWizard({ onSubmittedSuccess }) {
     }
   };
 
-  const handleFinalSubmit = () => {
+  const handleFinalSubmit = async () => {
     setIsConfirmModalOpen(false);
-    const saved = saveResponse(formData);
+    const saved = await saveResponse(formData);
     clearDraft();
     setSubmittedData(saved);
     setDone(true);
