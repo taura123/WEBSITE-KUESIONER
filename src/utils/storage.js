@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 // ─────────────────────────────────────────────────────────────
-//  Supabase Cloud Database Client
+//  Supabase Cloud Database Client — SINGLE SOURCE OF TRUTH
 // ─────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://vczjikexwngpjuqlmase.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_WI3XbrS2joJn-bJlp_59Pw_lfuKNqmm";
@@ -92,14 +92,6 @@ const formatForDb = (newData) => {
 
 // ─── READ ─────────────────────────────────────────────────────
 export const getStoredResponses = async () => {
-  let localData = [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-    if (raw) localData = JSON.parse(raw);
-  } catch (e) {
-    console.warn("Failed reading localStorage cache:", e);
-  }
-
   try {
     const { data, error } = await supabase
       .from("tracer_responses")
@@ -107,44 +99,27 @@ export const getStoredResponses = async () => {
       .order("submitted_at", { ascending: false });
 
     if (error) {
-      console.warn("Supabase query warning:", error.message);
-      // If table is missing or error, return localData so existing 6 respondents are still visible
-      return localData;
+      console.error("Supabase query error:", error.message);
+      return [];
     }
 
-    let dbResponses = (data || []).map(mapFromDb);
+    const dbResponses = (data || []).map(mapFromDb);
 
-    // Auto-migrate local responses to Supabase if any exist locally but not in Supabase yet
-    if (localData.length > 0) {
-      const dbIds = new Set(dbResponses.map((r) => r.id || r.nim));
-      const missingInDb = localData.filter(
-        (r) => !dbIds.has(r.id) && !dbIds.has(r.nim)
-      );
-
-      if (missingInDb.length > 0) {
-        console.log(`Auto-migrating ${missingInDb.length} local responses to Supabase...`);
-        for (const item of missingInDb) {
-          const payload = formatForDb(item);
-          await supabase.from("tracer_responses").insert([payload]);
-        }
-        // Re-fetch after auto-migration
-        const { data: updatedData } = await supabase
-          .from("tracer_responses")
-          .select("*")
-          .order("submitted_at", { ascending: false });
-        if (updatedData) dbResponses = updatedData.map(mapFromDb);
-      }
-    }
-
-    // Sync localStorage cache
+    // Sync to local cache (without re-inserting deleted items)
     try {
       localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(dbResponses));
     } catch (e) {}
 
     return dbResponses;
   } catch (err) {
-    console.error("Supabase connect error:", err);
-    return localData;
+    console.error("Supabase connection exception:", err);
+    // Fallback to local cache if offline
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
   }
 };
 
@@ -153,21 +128,8 @@ export const saveResponse = async (newData) => {
   const formattedPayload = formatForDb(newData);
   const mappedEntry = mapFromDb(formattedPayload);
 
-  // Always save to localStorage immediately as backup
-  let currentLocal = [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-    currentLocal = raw ? JSON.parse(raw) : [];
-  } catch (e) {}
-  
-  const updatedLocal = [mappedEntry, ...currentLocal.filter(x => x.id !== mappedEntry.id)];
-  try {
-    localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(updatedLocal));
-  } catch (e) {}
-
   clearDraft();
 
-  // Try pushing to Supabase
   try {
     const { error } = await supabase
       .from("tracer_responses")
@@ -177,55 +139,41 @@ export const saveResponse = async (newData) => {
     console.error("Supabase insert exception:", e);
   }
 
-  return mappedEntry;
+  // Return authoritative data from Supabase
+  return await getStoredResponses();
 };
 
 // ─── UPDATE ───────────────────────────────────────────────────
 export const updateResponse = async (id, updatedData) => {
-  // Update local cache
-  let currentLocal = [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-    currentLocal = raw ? JSON.parse(raw) : [];
-    const idx = currentLocal.findIndex((item) => (item.id || item.nim) === id);
-    if (idx !== -1) {
-      currentLocal[idx] = { ...currentLocal[idx], ...updatedData };
-      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(currentLocal));
-    }
-  } catch (e) {}
-
-  // Update Supabase
   try {
     const { error } = await supabase
       .from("tracer_responses")
       .update(updatedData)
       .eq("id", id);
     if (error) console.error("Error updating Supabase:", error.message);
-  } catch (e) {}
+  } catch (e) {
+    console.error("Supabase update exception:", e);
+  }
 
   return await getStoredResponses();
 };
 
 // ─── DELETE ───────────────────────────────────────────────────
 export const deleteResponse = async (id) => {
-  // Delete from local cache
+  // Clear local storage cache to prevent zombie data
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-    if (raw) {
-      const currentLocal = JSON.parse(raw);
-      const filtered = currentLocal.filter((item) => (item.id || item.nim) !== id);
-      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(filtered));
-    }
+    localStorage.removeItem(STORAGE_KEY_RESPONSES);
   } catch (e) {}
 
-  // Delete from Supabase
   try {
     const { error } = await supabase
       .from("tracer_responses")
       .delete()
       .eq("id", id);
     if (error) console.error("Error deleting from Supabase:", error.message);
-  } catch (e) {}
+  } catch (e) {
+    console.error("Supabase delete exception:", e);
+  }
 
   return await getStoredResponses();
 };
@@ -253,6 +201,7 @@ export const setTargetGraduates = (count) => {
 export const resetToDefaultData = async () => {
   try {
     localStorage.removeItem(STORAGE_KEY_RESPONSES);
+    await supabase.from("tracer_responses").delete().neq("id", "none");
   } catch (e) {}
   return [];
 };
@@ -277,4 +226,5 @@ export const clearDraft = () => {
     sessionStorage.removeItem(STORAGE_KEY_DRAFT);
   } catch (e) {}
 };
+
 
