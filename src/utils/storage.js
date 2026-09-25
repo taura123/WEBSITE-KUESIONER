@@ -92,39 +92,37 @@ const formatForDb = (newData) => {
 };
 
 // ─── READ ─────────────────────────────────────────────────────
+// Selalu menggabungkan data Supabase + INITIAL_EXCEL_DATASET
+// agar dashboard menampilkan semua 1033+ data.
+// Jika ada record dengan ID sama, Supabase (data asli) menjadi prioritas.
 export const getStoredResponses = async () => {
+  let dbResponses = [];
+
   try {
     const { data, error } = await supabase
       .from("tracer_responses")
       .select("*")
       .order("submitted_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      const dbResponses = data.map(mapFromDb);
-      try {
-        localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(dbResponses));
-      } catch (e) {}
-      return dbResponses;
+    if (!error && data) {
+      dbResponses = data.map(mapFromDb);
     }
   } catch (err) {
     console.error("Supabase connection exception:", err);
   }
 
-  // Fallback to local storage or INITIAL_EXCEL_DATASET
+  // Gabungkan dengan INITIAL_EXCEL_DATASET
+  // Supabase records ditempatkan di awal (lebih baru), Excel dataset mengisi sisanya
+  const dbIds = new Set(dbResponses.map((r) => r.id));
+  const excelOnly = INITIAL_EXCEL_DATASET.filter((r) => !dbIds.has(r.id));
+  const merged = [...dbResponses, ...excelOnly];
+
+  // Cache ke localStorage untuk performa load berikutnya
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.length > 0) return parsed;
-    }
+    localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(merged));
   } catch (e) {}
 
-  // Save to localStorage for instant subsequent loads
-  try {
-    localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(INITIAL_EXCEL_DATASET));
-  } catch (e) {}
-
-  return INITIAL_EXCEL_DATASET;
+  return merged;
 };
 
 // ─── CREATE ───────────────────────────────────────────────────
