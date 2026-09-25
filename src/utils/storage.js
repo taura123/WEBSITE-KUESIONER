@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { INITIAL_EXCEL_DATASET } from "../data/initialExcelDataset";
 
 // ─────────────────────────────────────────────────────────────
 //  Supabase Cloud Database Client — SINGLE SOURCE OF TRUTH
@@ -98,29 +99,32 @@ export const getStoredResponses = async () => {
       .select("*")
       .order("submitted_at", { ascending: false });
 
-    if (error) {
-      console.error("Supabase query error:", error.message);
-      return [];
+    if (!error && data && data.length > 0) {
+      const dbResponses = data.map(mapFromDb);
+      try {
+        localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(dbResponses));
+      } catch (e) {}
+      return dbResponses;
     }
-
-    const dbResponses = (data || []).map(mapFromDb);
-
-    // Sync to local cache (without re-inserting deleted items)
-    try {
-      localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(dbResponses));
-    } catch (e) {}
-
-    return dbResponses;
   } catch (err) {
     console.error("Supabase connection exception:", err);
-    // Fallback to local cache if offline
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
   }
+
+  // Fallback to local storage or INITIAL_EXCEL_DATASET
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_RESPONSES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+
+  // Save to localStorage for instant subsequent loads
+  try {
+    localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(INITIAL_EXCEL_DATASET));
+  } catch (e) {}
+
+  return INITIAL_EXCEL_DATASET;
 };
 
 // ─── CREATE ───────────────────────────────────────────────────

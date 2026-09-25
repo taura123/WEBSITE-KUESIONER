@@ -2,13 +2,15 @@ import React from "react";
 import { Download, FileSpreadsheet, FileText, CheckCircle2 } from "lucide-react";
 import { exportToKemendiktiExcel, exportToKemendiktiCSV } from "../../utils/exportKemendikti";
 
-export default function KemendiktiExportHub({ respondents = [] }) {
+export default function KemendiktiExportHub({ respondents = [], selectedYear = "Semua" }) {
   const handleExportExcel = () => {
-    exportToKemendiktiExcel(respondents);
+    const filename = `TAU_TracerStudy_Kemendikti_${selectedYear === "Semua" ? "SemuaTahun" : selectedYear}.xlsx`;
+    exportToKemendiktiExcel(respondents, filename);
   };
 
   const handleExportCSV = () => {
-    exportToKemendiktiCSV(respondents);
+    const filename = `TAU_TracerStudy_Kemendikti_${selectedYear === "Semua" ? "SemuaTahun" : selectedYear}.csv`;
+    exportToKemendiktiCSV(respondents, filename);
   };
 
   return (

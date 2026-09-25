@@ -46,17 +46,11 @@ export default function AdminDashboard({ respondents = [], adminUser = null, onD
     setTargetGraduatesState(getTargetGraduates());
   }, []);
 
-  // Filter respondents by survey cohort
+  // Filter respondents strictly by year cohort without mixing
   const filteredRespondents =
     selectedYear === "Semua"
       ? respondents
-      : respondents.filter((r) => {
-          if (selectedYear === "2026") return String(r.tahun_lulus) === "2026";
-          if (selectedYear === "2025") return ["2024", "2025"].includes(String(r.tahun_lulus));
-          if (selectedYear === "2024") return ["2023", "2024"].includes(String(r.tahun_lulus));
-          if (selectedYear === "2023") return ["2022", "2023"].includes(String(r.tahun_lulus));
-          return String(r.tahun_lulus) === selectedYear;
-        });
+      : respondents.filter((r) => String(r.tahun_lulus || r.tahunLulus) === String(selectedYear));
 
   // KPI Calculations on real data
   const trackedCount = filteredRespondents.length;
@@ -184,7 +178,7 @@ export default function AdminDashboard({ respondents = [], adminUser = null, onD
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-2">
             Tahun Tracer Study:
           </span>
-          {["Semua", "TS2026", "TS2025", "TS2024", "TS2023"].map((label) => {
+          {["Semua", "TS2026", "TS2025", "TS2024", "TS2023", "TS2022", "TS2021"].map((label) => {
             const yearVal = label.replace("TS", "");
             const isActive = selectedYear === yearVal;
             return (
@@ -285,7 +279,7 @@ export default function AdminDashboard({ respondents = [], adminUser = null, onD
       />
 
       {/* ── 5. Kemendikti Export Hub ── */}
-      <KemendiktiExportHub respondents={filteredRespondents} />
+      <KemendiktiExportHub respondents={filteredRespondents} selectedYear={selectedYear} />
 
       {/* ── 6. Respondents Management Table with Full CRUD ── */}
       <RespondentsTable
